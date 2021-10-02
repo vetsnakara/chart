@@ -8,18 +8,20 @@ const DPI_WIDTH = WIDTH * 2
 const DPI_HEIGHT = HEIGHT * 2
 
 const VIEW_HEIGHT = DPI_HEIGHT - PADDING * 2
+const VIEW_WIDTH = DPI_WIDTH
 
-chart(document.getElementById("chart"), [
-    [0, 0],
-    [200, 180],
-    [400, 50],
-    [600, 300],
-    [800, 100],
-])
+const data = getChartData()
+
+console.log(`data`, data)
+
+chart(document.getElementById("chart"), data)
 
 function chart(canvas, data) {
     const [yMin, yMax] = computeBoundaries(data)
-    const yRatio = VIEW_HEIGHT / (yMax - yMin)
+
+    // const yRatio = VIEW_HEIGHT / (yMax - yMin)
+    const yRatio = VIEW_HEIGHT / yMax
+    const xRatio = VIEW_WIDTH / (data.columns[0].length - 2)
 
     const ctx = canvas.getContext("2d")
 
@@ -39,7 +41,7 @@ function chart(canvas, data) {
     ctx.fillStyle = "#96a2aa"
     for (let i = 1; i <= ROWS_COUNT; i++) {
         const y = step * i
-        const text = yMax - textStep * i
+        const text = Math.round(yMax - textStep * i)
         ctx.fillText(text, 5, y + PADDING - 10)
         ctx.moveTo(0, y + PADDING)
         ctx.lineTo(DPI_WIDTH, y + PADDING)
@@ -47,29 +49,52 @@ function chart(canvas, data) {
     ctx.stroke()
     ctx.closePath()
 
-    ctx.beginPath()
-    ctx.lineWidth = 4
-    ctx.strokeStyle = "#ff0000"
+    // draw all lines
+    data.columns.forEach((col) => {
+        const name = col[0]
+        if (data.types[name] == "line") {
+            const coords = col
+                .slice(1)
+                .map((y, i) => [
+                    Math.floor(i * xRatio),
+                    Math.floor(DPI_HEIGHT - PADDING - y * yRatio),
+                ])
 
-    for (const [x, y] of data) {
-        ctx.lineTo(x, DPI_HEIGHT - PADDING - y * yRatio)
+            const color = data.colors[name]
+            line(ctx, coords, { color })
+        }
+    })
+}
+
+function line(ctx, coords, { color }) {
+    ctx.beginPath()
+
+    ctx.lineWidth = 4
+    ctx.strokeStyle = color
+
+    for (const [x, y] of coords) {
+        ctx.lineTo(x, y)
     }
 
     ctx.stroke()
     ctx.closePath()
 }
 
-function computeBoundaries(data) {
-    let min
-    let max
+function computeBoundaries({ columns, types }) {
+    const lineColumns = columns.filter(
+        ([type, ...values]) => types[type] === "line"
+    )
 
-    for (const [, y] of data) {
-        if (typeof min !== "number") min = y
-        if (typeof max !== "number") max = y
+    const minValues = lineColumns.map((col) =>
+        Math.min.apply(null, col.slice(1))
+    )
 
-        if (min > y) min = y
-        if (max < y) max = y
-    }
+    const maxValues = lineColumns.map((col) =>
+        Math.max.apply(null, col.slice(1))
+    )
+
+    const min = Math.min.apply(null, minValues)
+    const max = Math.max.apply(null, maxValues)
 
     return [min, max]
 }
