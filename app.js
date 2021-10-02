@@ -31,7 +31,74 @@ function chart(canvas, data) {
     canvas.height = DPI_HEIGHT
     canvas.width = DPI_WIDTH
 
-    // y axis
+    // draw x axis
+    const xData = data.columns.filter((col) => data.types[col[0]] !== "line")[0]
+    xAxis(ctx, xData, xRatio)
+
+    // draw y axis
+    yAxis(ctx, yMin, yMax)
+
+    // draw data
+    const yData = data.columns.filter((col) => data.types[col[0]] === "line")
+
+    yData.map(toCoords(xRatio, yRatio)).forEach((coords, idx) => {
+        const color = data.colors[yData[idx][0]]
+        drawLine(ctx, coords, { color })
+    })
+}
+
+function toDate(timestamp) {
+    const shortMonths = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
+    const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    const date = new Date(timestamp)
+
+    return `${shortMonths[date.getMonth()]} ${date.getDate()}`
+}
+
+function toCoords(xRatio, yRatio) {
+    return (col) => {
+        const name = col[0]
+
+        return col
+            .slice(1)
+            .map((y, i) => [
+                Math.floor(i * xRatio),
+                Math.floor(DPI_HEIGHT - PADDING - y * yRatio),
+            ])
+    }
+}
+
+function xAxis(ctx, data, xRatio) {
+    const colsCount = 6
+    const step = Math.round(data.length / colsCount)
+
+    ctx.strokeStyle = "#bbb"
+    ctx.font = "normal 20px Helvetica, sans-serif"
+    ctx.fillStyle = "#96a2aa"
+
+    for (let i = 1; i < data.length; i += step) {
+        const text = toDate(data[i])
+        const x = i * xRatio
+        ctx.fillText(text, x, DPI_HEIGHT - 10)
+    }
+    ctx.closePath()
+}
+
+function yAxis(ctx, yMin, yMax) {
     const step = VIEW_HEIGHT / ROWS_COUNT
     const textStep = (yMax - yMin) / ROWS_COUNT
 
@@ -48,25 +115,9 @@ function chart(canvas, data) {
     }
     ctx.stroke()
     ctx.closePath()
-
-    // draw all lines
-    data.columns.forEach((col) => {
-        const name = col[0]
-        if (data.types[name] == "line") {
-            const coords = col
-                .slice(1)
-                .map((y, i) => [
-                    Math.floor(i * xRatio),
-                    Math.floor(DPI_HEIGHT - PADDING - y * yRatio),
-                ])
-
-            const color = data.colors[name]
-            line(ctx, coords, { color })
-        }
-    })
 }
 
-function line(ctx, coords, { color }) {
+function drawLine(ctx, coords, { color = "#ff0000" } = {}) {
     ctx.beginPath()
 
     ctx.lineWidth = 4
