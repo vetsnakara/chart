@@ -1,3 +1,5 @@
+import "./styles.scss"
+
 const PADDING = 40
 const ROWS_COUNT = 5
 
