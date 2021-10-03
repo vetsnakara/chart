@@ -10,41 +10,155 @@ const DPI_HEIGHT = HEIGHT * 2
 const VIEW_HEIGHT = DPI_HEIGHT - PADDING * 2
 const VIEW_WIDTH = DPI_WIDTH
 
+const CIRCLE_RADIUS = 8
+
 const data = getChartData()
+
+let mouse = null
+
+const colors = {
+    gray: "#96a2aa",
+    lightGray: "#bbb",
+}
+
+let raf
+
+data.columns = data.columns.map((column) => column.slice(0, 30))
 
 console.log(`data`, data)
 
-chart(document.getElementById("chart"), data)
+const chartObj = chart(document.getElementById("chart"), data)
+chartObj.init()
 
 function chart(canvas, data) {
-    const [yMin, yMax] = computeBoundaries(data)
-
-    // const yRatio = VIEW_HEIGHT / (yMax - yMin)
-    const yRatio = VIEW_HEIGHT / yMax
-    const xRatio = VIEW_WIDTH / (data.columns[0].length - 2)
+    canvas.addEventListener("mousemove", mousemove)
+    canvas.addEventListener("mouseleave", mouseleave)
 
     const ctx = canvas.getContext("2d")
 
-    canvas.style.height = `${HEIGHT}px`
-    canvas.style.width = `${WIDTH}px`
+    return {
+        init() {
+            paint()
+        },
+        destroy() {
+            // cancelAnimationFrame(raf)
+            canvas.removeEventListener(mousemove)
+            canvas.removeEventListener(mouseleave)
+        },
+    }
 
-    canvas.height = DPI_HEIGHT
-    canvas.width = DPI_WIDTH
+    // Functions
+    // .........................................
+    function mouseleave() {
+        mouse = null
+        paint()
+    }
 
-    // draw x axis
-    const xData = data.columns.filter((col) => data.types[col[0]] !== "line")[0]
-    xAxis(ctx, xData, xRatio)
+    function mousemove({ clientX, clientY }) {
+        // raf = requestAnimationFrame(paint)
+        const { top, left } = canvas.getBoundingClientRect()
 
-    // draw y axis
-    yAxis(ctx, yMin, yMax)
+        if (!mouse) mouse = {}
 
-    // draw data
-    const yData = data.columns.filter((col) => data.types[col[0]] === "line")
+        mouse.x = (clientX - left) * 2
+        mouse.y = (clientY - top) * 2
 
-    yData.map(toCoords(xRatio, yRatio)).forEach((coords, idx) => {
-        const color = data.colors[yData[idx][0]]
-        drawLine(ctx, coords, { color })
-    })
+        paint()
+    }
+
+    function clear() {
+        ctx.clearRect(0, 0, 100, 100)
+    }
+
+    function paint() {
+        const [yMin, yMax] = computeBoundaries(data)
+
+        // const yRatio = VIEW_HEIGHT / (yMax - yMin)
+        const yRatio = VIEW_HEIGHT / yMax
+        const xRatio = VIEW_WIDTH / (data.columns[0].length - 2)
+
+        canvas.style.height = `${HEIGHT}px`
+        canvas.style.width = `${WIDTH}px`
+
+        canvas.height = DPI_HEIGHT
+        canvas.width = DPI_WIDTH
+
+        // draw x axis
+        const xData = data.columns.filter(
+            (col) => data.types[col[0]] !== "line"
+        )[0]
+
+        xAxis(ctx, xData, xRatio)
+
+        // draw y axis
+        yAxis(ctx, yMin, yMax)
+
+        // draw data
+        const yData = data.columns.filter(
+            (col) => data.types[col[0]] === "line"
+        )
+
+        const coords = yData.map(toCoords(xRatio, yRatio))
+
+        const cursor = getCursorIndex(coords[0])
+
+        if (cursor) {
+            drawLine(
+                ctx,
+                [
+                    [cursor.x, 0],
+                    [cursor.x, DPI_HEIGHT - PADDING],
+                ],
+                { color: colors.lightGray, lineWidth: 2 }
+            )
+        }
+
+        coords.forEach((coords, idx) => {
+            const color = data.colors[yData[idx][0]]
+            drawLine(ctx, coords, { color })
+
+            if (cursor) {
+                drawCircle(ctx, coords[cursor.index], { color })
+            }
+        })
+    }
+}
+
+function getCursorIndex(coords) {
+    if (!mouse) return null
+
+    const idxRight = coords
+        .map(([x, y]) => mouse.x - x)
+        .findIndex((diff) => diff < 0)
+
+    const idxLeft = idxRight > 0 ? idxRight - 1 : 0
+
+    const xValueLeft = coords[idxLeft][0]
+    const xValueRight = coords[idxRight][0]
+
+    const yValueLeft = coords[idxLeft][1]
+    const yValueRight = coords[idxRight][1]
+
+    const diffXLeft = Math.abs(mouse.x - xValueLeft)
+    const diffXRight = Math.abs(mouse.x - xValueRight)
+
+    const index = diffXLeft < diffXRight ? idxLeft : idxRight
+
+    return {
+        index,
+        x: coords[index][0],
+    }
+}
+
+function drawCircle(ctx, [x, y], { color }) {
+    ctx.beginPath()
+    ctx.arc(x, y, CIRCLE_RADIUS, 0, Math.PI * 2)
+    ctx.strokeStyle = color
+    ctx.fillStyle = "#fff"
+    ctx.lineWidth = 4
+    ctx.stroke()
+    ctx.fill()
+    ctx.closePath()
 }
 
 function toDate(timestamp) {
@@ -86,9 +200,9 @@ function xAxis(ctx, data, xRatio) {
     const colsCount = 6
     const step = Math.round(data.length / colsCount)
 
-    ctx.strokeStyle = "#bbb"
+    ctx.strokeStyle = colors.lightGray
     ctx.font = "normal 20px Helvetica, sans-serif"
-    ctx.fillStyle = "#96a2aa"
+    ctx.fillStyle = colors.gray
 
     for (let i = 1; i < data.length; i += step) {
         const text = toDate(data[i])
@@ -103,9 +217,9 @@ function yAxis(ctx, yMin, yMax) {
     const textStep = (yMax - yMin) / ROWS_COUNT
 
     ctx.beginPath()
-    ctx.strokeStyle = "#bbb"
+    ctx.strokeStyle = colors.lightGray
     ctx.font = "normal 20px Helvetica, sans-serif"
-    ctx.fillStyle = "#96a2aa"
+    ctx.fillStyle = colors.gray
     for (let i = 1; i <= ROWS_COUNT; i++) {
         const y = step * i
         const text = Math.round(yMax - textStep * i)
@@ -117,10 +231,10 @@ function yAxis(ctx, yMin, yMax) {
     ctx.closePath()
 }
 
-function drawLine(ctx, coords, { color = "#ff0000" } = {}) {
+function drawLine(ctx, coords, { color = "#ff0000", lineWidth = 4 } = {}) {
     ctx.beginPath()
 
-    ctx.lineWidth = 4
+    ctx.lineWidth = lineWidth
     ctx.strokeStyle = color
 
     for (const [x, y] of coords) {
