@@ -37,6 +37,8 @@ export default function chart(root, data) {
     const tip = tooltip(root.querySelector("[data-el='tooltip']"))
     const slider = sliderChart(root.querySelector("[data-el='slider']"), data)
 
+    slider.subscribe((position) => console.log(position))
+
     canvas.addEventListener("mousemove", mousemove)
     canvas.addEventListener("mouseleave", mouseleave)
 

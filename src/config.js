@@ -45,6 +45,8 @@ function sliderChart() {
 
     const CIRCLE_RADIUS = 8
 
+    const MIN_WINDOW_WIDTH = WIDTH * 0.05
+
     return {
         ROWS_COUNT,
         PADDING,
@@ -55,6 +57,7 @@ function sliderChart() {
         DPI_HEIGHT,
         VIEW_HEIGHT,
         CIRCLE_RADIUS,
+        MIN_WINDOW_WIDTH
     }
 }
 
