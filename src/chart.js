@@ -33,7 +33,7 @@ const {
 
 export default function chart(root, data) {
     const canvas = root.querySelector("[data-el='main']")
-    const ctx = canvas.getContext("2d")
+    const ctx = (window.ctx = canvas.getContext("2d"))
 
     const tip = tooltip(root.querySelector("[data-el='tooltip']"))
     const slider = sliderChart(root.querySelector("[data-el='slider']"), data)
@@ -79,10 +79,6 @@ export default function chart(root, data) {
         }
 
         paint()
-    }
-
-    function clear() {
-        ctx.clearRect(0, 0, 100, 100)
     }
 
     function paint() {
