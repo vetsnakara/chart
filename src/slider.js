@@ -135,6 +135,7 @@ export function sliderChart(root, data) {
                 fn(pos)
             }
         },
+        getPosition,
     }
 
     // Functions

@@ -7,6 +7,7 @@ import { tooltip } from "./tooltip"
 import { sliderChart } from "./slider"
 
 let mouse = null
+let position = null
 
 const {
     HEIGHT,
@@ -37,13 +38,17 @@ export default function chart(root, data) {
     const tip = tooltip(root.querySelector("[data-el='tooltip']"))
     const slider = sliderChart(root.querySelector("[data-el='slider']"), data)
 
-    slider.subscribe((position) => console.log(position))
+    slider.subscribe((pos) => {
+        position = pos
+        paint()
+    })
 
     canvas.addEventListener("mousemove", mousemove)
     canvas.addEventListener("mouseleave", mouseleave)
 
     return {
         init() {
+            position = slider.getPosition()
             paint()
         },
         destroy() {
@@ -81,10 +86,28 @@ export default function chart(root, data) {
     }
 
     function paint() {
-        const [yMin, yMax] = computeBoundaries(data)
+        const fullLength = data.columns[0].length
+
+        const { types } = data
+
+        const leftIndex = Math.round((fullLength * position[0]) / 100)
+        const rightIndex = Math.round((fullLength * position[1]) / 100)
+
+        const columns = data.columns.map((col, i) => {
+            const res = col.slice(leftIndex, rightIndex)
+
+            if (typeof res[0] !== "string") {
+                const colName = data.columns[i][0]
+                res.unshift(colName)
+            }
+
+            return res
+        })
+
+        const [yMin, yMax] = computeBoundaries({ columns, types })
 
         const yRatio = VIEW_HEIGHT / yMax
-        const xRatio = VIEW_WIDTH / (data.columns[0].length - 2)
+        const xRatio = VIEW_WIDTH / (columns[0].length - 2)
 
         css(canvas, {
             height: `${HEIGHT}px`,
@@ -95,17 +118,13 @@ export default function chart(root, data) {
         canvas.width = DPI_WIDTH
 
         // draw x axis
-        const xData = data.columns.filter(
-            (col) => data.types[col[0]] !== "line"
-        )[0]
+        const xData = columns.filter((col) => types[col[0]] !== "line")[0]
 
         xAxis(ctx, xData, xRatio)
         yAxis(ctx, yMin, yMax)
 
         // draw data
-        const yData = data.columns.filter(
-            (col) => data.types[col[0]] === "line"
-        )
+        const yData = columns.filter((col) => data.types[col[0]] === "line")
 
         const coords = yData.map(toCoords(xRatio, yRatio))
         const cursor = getCursor(coords[0], mouse && mouse.x)
